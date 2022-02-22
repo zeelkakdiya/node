@@ -1,6 +1,7 @@
 require("./db/conn")
 const sendmail = require("./sendmail/sendmail")
 const Useradd = require("./models/useraddress")
+const Product = require("./models/product")
 require('dotenv').config();
 const Register = require("./models/register")
 const Contactaus = require("./models/contactaus")
@@ -11,11 +12,40 @@ const bcrypt = require("bcryptjs")
 const jwt  = require("jsonwebtoken");
 const cors = require("cors");
 const useradd = require("./models/useraddress");
+const multer = require('multer');
 
+
+const storages = multer.diskStorage({
+    destination: function(req,file,cb){
+        cb(null,'./uploads/');
+    },
+    filename: function(req,file,cb){
+        cb(null,new Date().toString() + file.originalname);
+    }
+});
+
+const filefilter = (req,file,cb) =>{
+   if(file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype == 'image/jpg'){
+       cb(null,true);
+   }
+   else{
+       cb(null,false);
+   }
+}
+
+const upload = multer(
+    {
+        storage:storages ,
+        limits:{
+        fileSize:1024*1024*5
+},
+fileFilter:filefilter
+})
 
 app.use(express.json());
 app.use(express.urlencoded({extended:false}))
 app.use(cors());
+app.use('/uploads' ,express.static('uploads'));
 
 app.get("/" ,(req,res) =>{
     res.send("register login")
@@ -243,6 +273,44 @@ app.post("/contactaus"  ,async (req,res) =>{
         res.status(501).send(err)
      }
 
+ })
+
+ app.post("/product" ,upload.single('productImage'), async (req,res)=>{
+console.log(req.file);
+    try{
+        const name = req.body.name;
+        const price = req.body.price;
+        const manufactureddate = req.body.manufactureddate;
+        const importdate = req.body.importdate;
+        const expiredate = req.body.expiredate;
+        const productImage = req.file.path;
+        const details = req.body.details;
+    
+        const products = new Product({
+            name:name,
+            price:price,
+            manufactureddate:manufactureddate,
+            importdate:importdate,
+            expiredate:expiredate,
+            productImage:productImage,
+            details:details
+        })
+    
+        const pro = await products.save();
+
+        if(!pro){
+            res.status(401).send();
+        }
+        res.status(201).send(pro)
+
+    }catch(err){
+        console.log(err)
+        res.status(501).send(err)
+    }
+    
+
+
+    
  })
 
 app.listen(port ,()=>{
