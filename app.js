@@ -7,6 +7,7 @@ const Discount = require("./models/discount")
 const Order = require("./models/order")
 const Orderitem = require("./models/orderitem")
 const Orderdetails = require("./models/orderdetails")
+const auth = require("./midlware/auth")
 require('dotenv').config();
 const Register = require("./models/register")
 const Contactaus = require("./models/contactaus")
@@ -20,6 +21,7 @@ const useradd = require("./models/useraddress");
 const multer = require('multer');
 const path = require('path')
 const hash = require('random-hash');
+const cookieParser = require("cookie-parser")
 
 const storages = multer.diskStorage({
     destination: function(req,file,cb){
@@ -120,7 +122,7 @@ app.get("/login" , async(req,res) =>{
 
 })
 
-app.post("/login" ,async (req,res)=>{   
+app.post("/login" ,auth,async (req,res)=>{   
 
     try{
         const email = req.body.email;
@@ -131,10 +133,17 @@ app.post("/login" ,async (req,res)=>{
  
          const isMatch = await bcrypt.compare(password,userlogin.password)
 
-         
+      
         
          const token = await userlogin.genratetoken();
          console.log("the part of token " + token)
+
+         console.log("cookie genrated")
+         res.cookie("jwt", token, {
+         expires: new Date(Date.now() + 90000),
+         httpOnly: true,
+
+    })
 
          const sendemail = await sendmail.send_mail(email,email).then((result)=>console.log(result)).catch((err)=> console.log(err))
          console.log(`The part of the send email ${sendemail}`)
