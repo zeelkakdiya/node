@@ -1,5 +1,12 @@
 require("./db/conn")
 const sendmail = require("./sendmail/sendmail")
+const Useradd = require("./models/useraddress")
+const Product = require("./models/product")
+const Productinventroy = require("./models/product-inventroy")
+const Discount = require("./models/discount")
+const Order = require("./models/order")
+const Orderitem = require("./models/orderitem")
+const Orderdetails = require("./models/orderdetails")
 require('dotenv').config();
 const Register = require("./models/register")
 const Contactaus = require("./models/contactaus")
@@ -9,12 +16,46 @@ const app = express();
 const bcrypt = require("bcryptjs")
 const jwt  = require("jsonwebtoken");
 const cors = require("cors");
+const useradd = require("./models/useraddress");
+const multer = require('multer');
+const path = require('path')
+const hash = require('random-hash');
 
+const storages = multer.diskStorage({
+    destination: function(req,file,cb){
+        cb(null, path.join(__dirname, './uploads'));
+        // cb(null, __dirname);
+    },
+    filename: (req, file, callback) => { 
+        let temp = file.originalname.split('.');
+        const filename = temp[0] + '-' + hash.generateHash({length: 5}) + '.' + temp[1]
+        callback(null, filename);
+    }
+});
+
+const filefilter = (req,file,cb) =>{
+   if(file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype == 'image/jpg'){
+       cb(null,true);
+   }
+   else{
+       cb(null,false);
+   }
+}
+
+const upload = multer(
+    {
+        storage:storages ,
+        limits:{
+        fileSize:1024*1024*5
+},
+fileFilter:filefilter
+})
 
 app.use(express.json());
 app.use(express.urlencoded({extended:false}))
 app.use(cors());
-
+app.use('./uploads/' ,express.static('uploads'));
+// app.use(express.static(__dirname));
 app.get("/" ,(req,res) =>{
     res.send("register login")
 })
@@ -195,6 +236,309 @@ app.post("/contactaus"  ,async (req,res) =>{
      }
 
  })
+
+ app.post("/useraddress" , async (req,res) =>{
+     
+  const userid = req.body.userid;
+  const address =req.body.address;
+  const city = req.body.city;
+  const pincode = req.body.pincode;
+  const country = req.body.country;
+  const phoneno = req.body.phoneno;
+
+    try{
+
+         const useraddress = new Useradd({
+               userid : userid,
+               address : address,
+               city:city,
+               pincode :pincode,
+               country:country,
+               phoneno:phoneno
+         })
+
+        const useadd = await useraddress.save();
+        
+        if(!useadd){
+            res.status(401).send();
+        }
+
+        res.status(201).send(useadd)
+         
+    }catch(err){
+       console.log(err)
+       res.status(401).send(err)
+    }
+     
+ })
+
+ app.get("/useraddress" , async (req,res) =>{
+     try{
+        const usergedata = await useradd.find({})
+        .populate("userid","_id")
+        res.status(201).send(usergedata)
+     }catch(err){
+         console.log(err)
+        res.status(501).send(err)
+     }
+
+ })
+
+ app.post("/product" ,upload.single("productImage"), async (req,res)=>{
+console.log(req.file);
+    try{
+        const name = req.body.name;
+        const price = req.body.price;
+        const manufactureddate = req.body.manufactureddate;
+        const importdate = req.body.importdate;
+        const expiredate = req.body.expiredate;
+        const productImage = req.file.path;
+        const details = req.body.details;
+    
+        const products = new Product({
+            name:name,
+            price:price,
+            manufactureddate:manufactureddate,
+            importdate:importdate,
+            expiredate:expiredate,
+            productImage:productImage,
+            details:details
+        })
+    
+        const pro = await products.save();
+
+        if(!pro){
+            res.status(401).send();
+        }
+        res.status(201).send(pro)
+
+    }catch(err){
+        console.log(err)
+        res.status(501).send(err)
+    }
+    
+
+
+    
+ })
+
+ app.get("/product" ,async (req,res) =>{
+     try{
+        const getdataproduct = await Product.find({})
+        res.status(201).send(getdataproduct)
+     }catch(err){
+         console.log(err)
+         res.status(401).send(err);
+     }
+   
+ })
+
+ app.post("/Productinventroy" , async (req,res) =>{
+
+    try{
+        const productid =  req.body.productid;
+        const unit = req.body.unit;
+        const price = req.body.price;
+        const quntity = req.body.quntity;
+    
+         const productinventory = Productinventroy({
+            productid :productid,
+            unit:unit,
+            price:price,
+            quntity:quntity
+         })
+    
+         const productinventorydata =  await productinventory.save();
+         if(!productinventorydata){
+             res.status(401).send();
+         }
+         res.status(201).send(productinventorydata)
+    }catch(err){
+         console.log(err)
+         res.status(401).send(err)
+    }
+
+
+
+ })
+
+ app.get("/Productinventroy" ,async (req,res) =>{
+     try{
+        const getdataproductinventroy =  await Productinventroy.find({})
+        .populate("productid","_id name")
+        if(!getdataproductinventroy){
+            res.status(401).send();
+        }
+        res.status(201).send(getdataproductinventroy)
+     }catch(err){
+     console.log(err)
+     res.status(501).send(err)
+     }
+ 
+ })
+
+app.post("/Discount",async(req,res)=>{
+    try{
+        const pname = req.body.pname;
+        const discount = req.body.discount;
+        const archive = req.body.archive;
+        const totalprice = req.body.totalprice;
+    
+        const dis = new Discount({
+            pname:pname,
+            discount:discount,
+            archive:archive,
+            totalprice:totalprice,
+        })
+    
+        const discounts = await dis.save();
+        if(!discounts){
+            res.status(501).send();
+        }
+        res.status(201).send(discounts)
+    }catch(err){
+         console.log(err)
+         res.status(500).send();
+    }
+})
+
+app.get("/Discount",async(req,res) =>{
+    try{
+        const getdatadiscount = await Discount.find()
+        res.status(201).send(getdatadiscount);
+    }catch(err){
+       console.log(err)
+       res.status(501).send(err)
+    }
+
+})
+
+app.post("/Order",async(req,res)=>{
+    try{
+        const productid = req.body.productid;
+        const quntity = req.body.quntity;
+        const totalprice = req.body.totalprice;
+        const orderdate = req.body.orderdate;
+        const paymentdate = req.body.paymentdate;
+        const userid = req.body.userid;
+        const discount = req.body.discount;
+        const comment = req.body.comment;
+        const status = req.body.status;
+
+        const orde = new Order({
+            productid:productid,
+            quntity:quntity,
+            totalprice:totalprice,
+            orderdate:orderdate,
+            paymentdate:paymentdate,
+            userid:userid,
+            discount:discount,
+            comment:comment,
+            status:status
+        })
+    
+        const orders = await orde.save();
+        if(!orders){
+            res.status(501).send();
+        }
+        res.status(201).send(orders)
+    }catch(err){
+         console.log(err)
+         res.status(500).send();
+    }
+})
+
+app.get("/Order",async(req,res) =>{
+    try{
+        const getdataorder = await Order.find()
+        .populate("productid userid" ,"_id name")
+        res.status(201).send(getdataorder);
+    }catch(err){
+       console.log(err)
+       res.status(501).send(err)
+    }
+
+})
+
+app.post("/Orderitem",async(req,res)=>{
+    try{
+        const orderid = req.body.orderid
+        const productid = req.body.productid;
+        const quntity = req.body.quntity;
+        
+
+        const ordeitem = new Orderitem({
+            orderid:orderid,
+            productid:productid,
+            quntity:quntity,
+           
+        })
+    
+        const orderitems = await ordeitem.save();
+        if(!orderitems){
+            res.status(501).send();
+        }
+        res.status(201).send(orderitems)
+    }catch(err){
+         console.log(err)
+         res.status(500).send();
+    }
+})
+
+
+app.get("/Orderitem",async(req,res) =>{
+    try{
+        const getdataorderitem = await Orderitem.find()
+        .populate("orderid productid","_id price")
+        res.status(201).send(getdataorderitem);
+    }catch(err){
+       console.log(err)
+       res.status(501).send(err)
+    }
+
+})
+
+app.post("/Orderdetails",async(req,res)=>{
+    try{
+        const userid = req.body.userid
+        const totalpayment = req.body.totalpayment;
+        const paymentid = req.body.paymentid;
+        
+
+        const ordedetails = new Orderdetails({
+            userid:userid,
+            totalpayment:totalpayment,
+            paymentid:paymentid,
+           
+        })
+    
+        const orderdeta = await ordedetails.save();
+        if(!orderdeta){
+            res.status(501).send();
+        }
+        res.status(201).send(orderdeta)
+    }catch(err){
+         console.log(err)
+         res.status(500).send();
+    }
+})
+
+app.get("/Orderdetails",async(req,res) =>{
+    try{
+        const getdataorderdetail = await Orderdetails.find()
+        .populate("userid")
+        res.status(201).send(getdataorderdetail);
+    }catch(err){
+       console.log(err)
+       res.status(501).send(err)
+    }
+
+})
+
+
+
+
+
 
 app.listen(port ,()=>{
     console.log(`port number ${port}`)
