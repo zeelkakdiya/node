@@ -44,7 +44,8 @@ const order = new mongoose.Schema({
     },
     status:{
         type:String,
-        required:["paid","unpaid"]
+        enum:["paid","unpaid"],
+        requiredPaths:true
     }
 })
 
